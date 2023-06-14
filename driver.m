@@ -448,6 +448,86 @@ oplot([1,1d3],[1,1],'--k','none',2,3);
 %saveas(1,'fig07ci.svg','svg')
 close(1)
 
+
+%%--> example for dealing with trajectories of different lengths
+% M trajectories with different lengths but same frame time dt
+%
+% test purpose: read in telomer data, cut to random lengths
+% these code fragments are enclosed by %-->>  ...  %--<<
+%
+% generic: x- and y-coordinates of each trajectory are assumed 
+% to be stored separately in numbered ASCII files, uncomment
+% the generic read statements and remove all code fragments 
+% enclosed by %-->>  ...  %--<<
+%
+
+%-->> 
+N  = 2000; M  = 100; dt = 0.125; rng(0);
+x = dlmread('data/telomers_xx.dat');
+y = dlmread('data/telomers_yy.dat');
+%---<<
+
+nr = 0;   %--> number of longest trajectory
+zz = 0;   %--> largest lag time
+for loop=1:M
+    %-->>
+    ff=round(1500*rand);
+    xx=x(loop,1:500+ff);
+    yy=y(loop,1:500+ff);
+    %--<<
+    
+    %--> generic: read the data for trajectory No. <loop> 
+    %xx = dlmread(['filename_x_data',num2str(loop)]); 
+    %yy = dlmread(['filename_y_data',num2str(loop)]); 
+        
+    %--> make sure that x,y-arrays are compatible
+    [xx,yy] = dimcheck(xx,yy);
+
+    %--> calculate & store observable of interest for trajectory
+    dim            = 0;     %-> evaluate x- and y-coordinate
+    dis            = 'log'; %-> use equi-spacing on log scale
+    [tau,msd]      = ta_msd(dt,xx,yy,dim,dis);
+
+    %--> memorize if longest trajectory so far
+    if (round(max(tau)/dt) > zz)
+        zz=round(max(tau)/dt);
+        nr=loop;
+    end
+    
+    %--> store everything in structure variable
+    data{loop}.N   = numel(xx); % trajectory length
+    data{loop}.dt  = dt;        % frame time
+    data{loop}.xx  = xx;        % array of x coordinates
+    data{loop}.yy  = yy;        % array of y coordinates
+    data{loop}.tau = tau;    
+    data{loop}.msd = msd;    
+end
+
+tau = data{nr}.tau;
+msd = tau*0;
+nnn = tau*0;
+
+for loop=1:M
+    n        = numel(data{loop}.msd);
+    msd(1:n) = msd(1:n)+data{loop}.msd;
+    nnn(1:n) = nnn(1:n)+1;
+end
+msd=msd./nnn;
+
+[tt,ms] = eata_msd(dt,N,M,x,y,0,'log');
+ax      = plotter([0.1 200 5e-4 0.5],'\tau [s]','\langler^2(\tau)\rangle_t [\mum^2]','xlog','ylog');
+oplot(tt,ms,'-ko','none',12,2);
+oplot(tau,msd,'rs','none',12,2);         
+hold off
+%saveas(1,'fig08a.svg','svg')
+close(1)
+
+ax      = plotter([1 2000 1 150],'\tau/\Deltat','M_{eff}','xlog','ylog');
+oplot(tau/dt,nnn,'rs','none',12,2);         
+hold off
+%saveas(1,'fig08b.svg','svg')
+close(1)
+
 %%--> from here: helper routines for plotting
 
 function erg=plotter(rang,xla,yla,stx,sty)
